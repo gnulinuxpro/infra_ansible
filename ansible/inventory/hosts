@@ -1,0 +1,2 @@
+[servers]
+alma ansible_host=10.0.2.111 ansible_user=user ansible_password=1

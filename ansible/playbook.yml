@@ -1,0 +1,74 @@
+- name: Configure servers
+  hosts: servers
+  become: yes 
+
+  tasks:
+
+  - name: Set hostname
+    hostname:
+      name: '{{ hostname }}'
+      use: systemd
+
+  - name: Get active connections
+    shell: nmcli -t -f NAME c show --active
+    register: active_conns
+  
+  - name: Create team interface
+    community.general.nmcli:
+      type: team
+      conn_name: '{{ item.conn_name }}'
+      ifname: '{{ item.ifname }}'
+      method4: '{{ item.method4 }}'
+      ip4: '{{ item.ip4 }}'
+      gw4: '{{ item.gw4 }}'
+      method6: '{{ item.method6 }}'
+      runner: '{{ item.runner }}'
+      state: present
+    with_items:
+      - '{{ nmcli_team }}'
+    register: nicteam
+
+  - name: Add slaves
+    community.general.nmcli:
+      type: team-slave
+      conn_name: '{{ item.conn_name }}'
+      ifname: '{{ item.ifname }}'
+      master: '{{ item.master }}'
+      state: present
+    with_items:
+      - '{{ nmcli_team_slave }}'
+
+  - name: Create VLAN interface
+    community.general.nmcli:
+      type: vlan
+      conn_name: '{{ item.conn_name }}'
+      vlandev: '{{ item.dev }}'
+      vlanid: '{{ item.id }}'
+      method4: '{{ item.method4 }}'
+      ip4: '{{ item.ip4 }}'
+      gw4: '{{ item.gw4 }}'
+      method6: '{{ item.method6 }}'
+      state: present
+    with_items:
+      - '{{ nmcli_vlan }}'
+
+  - name: UP team interface
+    shell: nmcli con up '{{ teamif }}'
+    when: nicteam.changed
+
+  - name: Delete default connections
+    community.general.nmcli:
+      conn_name: '{{ item.conn_name }}'
+      state: absent
+    with_items:
+     - '{{ default_conn }}'
+    when: active_conns.stdout.find('Wired connection') != -1
+    ignore_errors: yes
+
+  - name: Get all connections
+    shell: nmcli -t -f NAME c show
+    register: conns
+
+  - name: Show all connections 
+    debug:
+      msg: '{{ conns.stdout_lines }}'

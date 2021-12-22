@@ -1,0 +1,6 @@
+hostname: "alma2.my.lan"
+
+vlans: false
+
+teamip: "10.0.2.112/24"
+teamgw: "10.0.2.1"
